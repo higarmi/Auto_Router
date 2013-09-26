@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+
+<head>
+	<title>Map Router Draft</title>
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <link href="style.css" rel="stylesheet">
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+
+	
+<script type="text/javascript">
+	// Check for the various File API support.
+	if (window.File && window.FileReader && window.FileList && window.Blob) 
+	{
+		// Great success! All the File APIs are supported.
+	} else 
+	{
+		alert('The File APIs are not fully supported in this browser.');
+	}
+ 
+	function handleFileSelect(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+
+		var files = evt.target.files || evt.dataTransfer.files; // FileList object.
+		var file = files[0];
+		
+		var addressList = [];
+		
+		// this creates the FileReader and reads stuff as text
+		var fr = new FileReader();
+		fr.onload = parse;
+		fr.readAsText(file);
+
+		// parse the file and populate the selection fields:
+	function parse()
+		{
+			var addresses = fr.result.split('\n'); var c = 0;
+			for (var i in addresses)
+			{
+				var address = addresses[i].split(',');
+				
+				addressList.push(address); //I do not think this list is needed
+				
+				if (address.length === 4  && c>0) //c >0 due to presence of table headings
+				{	
+					var select = document.getElementById("start");
+					var row1 = document.createElement("option");
+					row1.innerHTML = "<option value="+ address + ">" + address + "</input>";
+					select.appendChild(row1);
+					
+					var select = document.getElementById("waypoints");
+					var row = document.createElement("option");
+					row.innerHTML = "<option value="+ address + ">" + address + "</input>";
+					select.appendChild(row);
+					
+					
+					var select = document.getElementById("end");
+					var row2 = document.createElement("option");
+					row2.innerHTML = "<option value="+ address + ">" + address + "</input>";
+					select.appendChild(row2);
+					
+					//c++;
+				}
+				c++;
+			}
+			document.getElementById('result').innerHTML = '<span>Added ' + c + ' addresses from file: ' + file.name + '</span>';
+		
+		}
+	}
+	
+	function handleDragOver(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+	}
+	
+	// yeah, I know this is not quite right
+	window.onload = function()
+	{
+		// Setup the dnd listeners.
+		var dropZone = document.getElementById('drop_zone');
+		dropZone.addEventListener('dragover', handleDragOver, false);
+		dropZone.addEventListener('drop', handleFileSelect, false);
+
+		document.getElementById('files').addEventListener('change', handleFileSelect, false);
+	}
+	
+</script>
+
+<script>
+var directionsDisplay;
+var directionsService = new google.maps.DirectionsService();
+var map;
+
+function initialize() {
+  directionsDisplay = new google.maps.DirectionsRenderer();
+  var chicago = new google.maps.LatLng(41.850033, -87.6500523);
+  var mapOptions = {
+    zoom: 4,
+    mapTypeId: google.maps.MapTypeId.ROADMAP,
+    center: chicago
+  }
+  map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+  directionsDisplay.setMap(map);
+}
+
+function calcRoute() {
+  var start = document.getElementById('start').value;
+  var end = document.getElementById('end').value;
+  var waypts = [];
+  var checkboxArray = document.getElementById('waypoints');
+  for (var i = 0; i < checkboxArray.length; i++) {
+    if (checkboxArray.options[i].selected == true) {
+      waypts.push({
+          location:checkboxArray[i].value,
+          stopover:true});
+    }
+  }
+
+  var request = {
+      origin: start,
+      destination: end,
+      waypoints: waypts,
+      optimizeWaypoints: true,
+      travelMode: google.maps.TravelMode.DRIVING
+  };
+  directionsService.route(request, function(response, status) {
+    if (status == google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setDirections(response);
+      var route = response.routes[0];
+      var summaryPanel = document.getElementById('directions_panel');
+      summaryPanel.innerHTML = '';
+      // For each route, display summary information.
+      for (var i = 0; i < route.legs.length; i++) {
+        var routeSegment = i + 1;
+        summaryPanel.innerHTML += '<b>Route Segment: ' + routeSegment + '</b><br>';
+        summaryPanel.innerHTML += route.legs[i].start_address + ' to ';
+        summaryPanel.innerHTML += route.legs[i].end_address + '<br>';
+        summaryPanel.innerHTML += route.legs[i].distance.text + '<br><br>';
+      }
+    }
+  });
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  </head>
+  <body>
+  
+  <div id="container">
+	<div id="drop_zone"><span id="drop_text">Drop file here</span></div>
+	<div id="selector">Or select file: <input type="file" id="files" name="files[]" multiple /></div>
+</div>
+
+<table id="emps">
+	<th>Address</th><th>City</th><th>State</th><th>ZIP</th>
+</table>
+
+<div id="result"></div>
+  
+  
+    <div id="map-canvas" style="float:left;width:70%;height:100%;"></div>
+    <div id="control_panel" style="float:right;width:30%;text-align:left;padding-top:20px">
+    <div style="margin:20px;border-width:2px;">
+    <b>Start:</b>
+    <select id="start">
+	
+    </select>
+	
+    <br>
+    <b>Waypoints:</b> <br>
+    <i>(Ctrl-Click for multiple selection)</i> <br>
+    <select multiple id="waypoints">
+		<!--
+      <option value="chicago, il">Chicago</input>
+      <option value="spokane, wa">Spokane</input>
+	  -->
+    </select>
+	
+    <br>
+    <b>End:</b>
+    <select id="end">
+	
+    </select>
+	
+    <br>
+      <input type="submit" onclick="calcRoute();">
+    </div>
+    <div id="directions_panel" style="margin:20px;background-color:#FFEE77;"></div>
+    </div>
+	
+</body>
+</html>
